@@ -5,6 +5,29 @@ const $ = id => document.getElementById(id);
 let context, stream, analyser, frame, music, slideTimer, revealTimer, celebrationTimer;
 let blown = false, generation = 0, currentPhoto = 0;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const trackedEvents = new Set();
+
+function initializeAnalytics() {
+ const id = config.analyticsMeasurementId?.trim();
+ if (!/^G-[A-Z0-9]+$/i.test(id || '')) return;
+ window.dataLayer = window.dataLayer || [];
+ window.gtag = function () { window.dataLayer.push(arguments); };
+ window.gtag('js', new Date());
+ window.gtag('config', id, {
+  allow_google_signals: false,
+  allow_ad_personalization_signals: false
+ });
+ const tag = document.createElement('script');
+ tag.async = true;
+ tag.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(id)}`;
+ document.head.append(tag);
+}
+function track(eventName, parameters = {}, once = true) {
+ if (!window.gtag || (once && trackedEvents.has(eventName))) return;
+ if (once) trackedEvents.add(eventName);
+ window.gtag('event', eventName, parameters);
+}
+initializeAnalytics();
 $('name').textContent = config.name;
 $('message').textContent = config.message;
 const photos = config.photos.length ? config.photos : [{src:'assets/photos/01.svg',caption:'A favorite memory'}];
@@ -32,6 +55,7 @@ function stopMic() {
  analyser?.disconnect();analyser=null;
 }
 $('start').onclick = async () => {
+ track('magic_started');
  const request = ++generation;
  $('start').disabled=true;
  $('status').textContent='Preparing your microphone…';
@@ -58,7 +82,7 @@ $('start').onclick = async () => {
    else {
     $('status').textContent='Listening… blow gently towards your microphone. Or tap below.';
     const threshold=Math.max(.035,(baseline/Math.max(samples,1))*3.2);
-    if(rms>threshold) {strongSince ||= now;if(now-strongSince>220) {blow();return;}}
+    if(rms>threshold) {strongSince ||= now;if(now-strongSince>220) {blow('microphone');return;}}
     else strongSince=0;
    }
    frame=requestAnimationFrame(listen);
@@ -89,21 +113,26 @@ function confetti() {
  function draw(now) {ctx.clearRect(0,0,w,h);pieces.forEach(p=>{p.y+=p.v;p.x+=Math.sin(p.y/40)*.7;ctx.fillStyle=p.color;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r+p.y/70);ctx.fillRect(-3,-4,6,9);ctx.restore();});if(now-start<6500)requestAnimationFrame(draw);else ctx.clearRect(0,0,w,h);}
  requestAnimationFrame(draw);
 }
-function blow() {
+function blow(method) {
  if(blown)return;blown=true;generation++;stopMic();
+ track('candle_blown', {method});
  document.querySelector('.cake-scene').classList.add('out');$('status').textContent='Wish made. Let the magic begin…';
  celebrationTimer=setTimeout(()=> {
   $('wish').hidden=true;$('birthday').hidden=false;showPhoto(0);tune();confetti();
+  track('birthday_revealed');
   slideTimer=setInterval(()=>showPhoto((currentPhoto+1)%photos.length),2800);
   revealTimer=setTimeout(()=>{$('watch').hidden=false;$('countdown').textContent='A birthday message, made just for you.';},5000);
  },1100);
 }
-$('tap').onclick=async()=>{await unlockAudio();blow();};
+$('tap').onclick=async()=>{await unlockAudio();blow('tap');};
 $('watch').onclick=()=>{
+ track('video_opened');
  $('video-dialog').showModal();
  if(config.videoUrl) {$('video-placeholder').hidden=true;$('video').hidden=false;if(!$('video').getAttribute('src'))$('video').src=config.videoUrl;$('video').play().catch(()=>{});}
  else {$('video').hidden=true;$('video-placeholder').hidden=false;}
 };
+$('video').addEventListener('play',()=>track('video_started'));
+$('video').addEventListener('ended',()=>track('journey_completed'));
 $('video').onerror=()=>{$('video-error').hidden=false;};
 $('close').onclick=()=>$('video-dialog').close();
 $('video-dialog').addEventListener('close',()=>$('video').pause());
