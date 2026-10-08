@@ -11,5 +11,8 @@ window.BIRTHDAY_CONFIG = {
   // Use a playable media URL, not a GitHub /blob/ page URL.
   videoUrl: "assets/birthday-video.mp4",
   // Optional: "assets/music.mp3". Empty = built-in five-second tune.
-  musicUrl: ""
+  musicUrl: "",
+  // Optional Google Analytics 4 Measurement ID, for example: "G-ABC1234567".
+  // Leave empty to disable analytics. Never put a Google API secret here.
+  analyticsMeasurementId: "G-V46WNS4L0T"
 };
